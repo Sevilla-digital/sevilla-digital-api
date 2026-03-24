@@ -4,70 +4,57 @@ const app = express();
 
 app.use(express.json());
 
-// CONFIGURACIÓN DE TU BOT (Datos de tus capturas)
 const TELEGRAM_TOKEN = '8730751944:AAErirL2kP2zpB5oUmzJYY_A5G6HjC_JQzU';
 const MI_CHAT_ID = '7050856247';
 
-// 1. RUTA DE PRUEBA (Para ver en el navegador)
-app.get('/', (req, res) => {
-    res.send('✅ Sevilla Digital API: El motor está encendido y escuchando.');
-});
+app.get('/', (req, res) => res.send('🚀 Filtro de Sevilla Digital: ACTIVO'));
 
-// 2. RUTA DEL WEBHOOK (Donde Shopify envía la info)
 app.post('/webhook/shopify', async (req, res) => {
-    // IMPORTANTE: Le respondemos a Shopify de inmediato para que no se desconecte
+    // 1. Respondemos rápido a Shopify
     res.status(200).send('Recibido');
 
-    console.log("-----------------------------------------");
-    console.log("🔔 ¡NOTIFICACIÓN DE SHOPIFY DETECTADA!");
-
     const order = req.body;
+    let playerID = null;
 
-    // Buscamos el ID del jugador en las propiedades del producto (Cuadro naranja)
-    let playerID = "No proporcionado";
-    
-    try {
-        if (order.line_items && order.line_items.length > 0) {
-            const item = order.line_items;
-            // Buscamos específicamente la propiedad "ID_Jugador"
-            if (item.properties && item.properties.length > 0) {
-                const foundProp = item.properties.find(p => p.name === "ID_Jugador");
-                if (foundProp) playerID = foundProp.value;
+    // 2. BUSCAMOS EL ID SOLO EN LOS PRODUCTOS QUE LO TIENEN
+    if (order.line_items) {
+        order.line_items.forEach(item => {
+            if (item.properties) {
+                const prop = item.properties.find(p => p.name === "ID_Jugador");
+                if (prop) playerID = prop.value;
             }
-        }
+        });
+    }
 
-        // Si no está en el producto, buscamos en la nota de la orden
-        if (playerID === "No proporcionado" && order.note) {
-            playerID = order.note;
-        }
+    // 3. LA REGLA DE ORO: Si no hay Player ID, NO mandamos nada a Telegram
+    if (!playerID || playerID === "No proporcionado") {
+        console.log("⏭️ Orden ignorada: No es un producto de recarga (Sin ID).");
+        return; 
+    }
 
-        // Formateamos el mensaje para Telegram
-        const mensaje = `
-🚀 *¡NUEVA VENTA EN SEVILLA DIGITAL!*
+    // 4. Si llegamos aquí, es porque SÍ es Free Fire
+    const mensaje = `
+🔥 *¡NUEVA RECARGA DE DIAMANTES!* 🔥
 ----------------------------------
-💰 *Total:* ${order.total_price || '0.00'} ${order.currency || 'USD'}
-👤 *Cliente:* ${order.customer ? order.customer.first_name : 'Sin nombre'}
+👤 *Cliente:* ${order.customer ? order.customer.first_name : 'Cliente'}
 🆔 *PLAYER ID:* ${playerID}
+💰 *Monto:* ${order.total_price} ${order.currency}
+🛒 *Producto:* ${order.line_items.title}
 ----------------------------------
-💎 *Estado:* Listo para recargar en Pagostore.
-        `;
+✅ *Acción:* Recargá ahora en Pagostore.
+    `;
 
-        // Enviamos el mensaje a tu Telegram
+    try {
         await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
             chat_id: MI_CHAT_ID,
             text: mensaje,
             parse_mode: 'Markdown'
         });
-
-        console.log("✅ Mensaje enviado a Telegram para el ID:", playerID);
-
+        console.log("✅ Aviso de Free Fire enviado a Telegram.");
     } catch (error) {
-        console.error("❌ Error procesando el webhook:", error.message);
+        console.error("❌ Error enviando a Telegram:", error.message);
     }
 });
 
-// 3. INICIO DEL SERVIDOR
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Filtro corriendo en puerto ${PORT}`));
