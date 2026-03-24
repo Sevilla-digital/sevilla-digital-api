@@ -4,54 +4,70 @@ const app = express();
 
 app.use(express.json());
 
+// CONFIGURACIÓN DE TU BOT (Datos de tus capturas)
 const TELEGRAM_TOKEN = '8730751944:AAErirL2kP2zpB5oUmzJYY_A5G6HjC_JQzU';
 const MI_CHAT_ID = '7050856247';
 
+// 1. RUTA DE PRUEBA (Para ver en el navegador)
 app.get('/', (req, res) => {
-    res.send('Servidor de Sevilla Digital: ACTIVO 🚀');
+    res.send('✅ Sevilla Digital API: El motor está encendido y escuchando.');
 });
 
+// 2. RUTA DEL WEBHOOK (Donde Shopify envía la info)
 app.post('/webhook/shopify', async (req, res) => {
-    // 1. LE RESPONDEMOS A SHOPIFY DE INMEDIATO (Para que no se queje)
-    res.status(200).send('OK');
-    
+    // IMPORTANTE: Le respondemos a Shopify de inmediato para que no se desconecte
+    res.status(200).send('Recibido');
+
     console.log("-----------------------------------------");
-    console.log("🔔 ¡LLEGÓ UNA LLAMADA DE SHOPIFY!"); 
+    console.log("🔔 ¡NOTIFICACIÓN DE SHOPIFY DETECTADA!");
 
     const order = req.body;
 
-    // 2. Lógica del ID (Igual que antes)
+    // Buscamos el ID del jugador en las propiedades del producto (Cuadro naranja)
     let playerID = "No proporcionado";
-    if (order.line_items && order.line_items.length > 0) {
-        const item = order.line_items;
-        if (item.properties) {
-            const propID = item.properties.find(p => p.name === "ID_Jugador");
-            if (propID) playerID = propID.value;
-        }
-    }
-    if (playerID === "No proporcionado" && order.note) playerID = order.note;
-
-    const mensaje = `
-🚀 *¡NUEVA VENTA EN SEVILLA DIGITAL!*
-💰 *Monto:* ${order.total_price || '0.00'} ${order.currency || 'USD'}
-👤 *Cliente:* ${order.customer ? order.customer.first_name : 'Cliente'}
-🆔 *PLAYER ID:* ${playerID}
---------------------------
-Mete el ID en Pagostore! 💎
-    `;
-
-    // 3. Enviamos a Telegram después de haberle respondido a Shopify
+    
     try {
+        if (order.line_items && order.line_items.length > 0) {
+            const item = order.line_items;
+            // Buscamos específicamente la propiedad "ID_Jugador"
+            if (item.properties && item.properties.length > 0) {
+                const foundProp = item.properties.find(p => p.name === "ID_Jugador");
+                if (foundProp) playerID = foundProp.value;
+            }
+        }
+
+        // Si no está en el producto, buscamos en la nota de la orden
+        if (playerID === "No proporcionado" && order.note) {
+            playerID = order.note;
+        }
+
+        // Formateamos el mensaje para Telegram
+        const mensaje = `
+🚀 *¡NUEVA VENTA EN SEVILLA DIGITAL!*
+----------------------------------
+💰 *Total:* ${order.total_price || '0.00'} ${order.currency || 'USD'}
+👤 *Cliente:* ${order.customer ? order.customer.first_name : 'Sin nombre'}
+🆔 *PLAYER ID:* ${playerID}
+----------------------------------
+💎 *Estado:* Listo para recargar en Pagostore.
+        `;
+
+        // Enviamos el mensaje a tu Telegram
         await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
             chat_id: MI_CHAT_ID,
             text: mensaje,
             parse_mode: 'Markdown'
         });
-        console.log("✅ Mensaje enviado a Telegram.");
+
+        console.log("✅ Mensaje enviado a Telegram para el ID:", playerID);
+
     } catch (error) {
-        console.error("❌ Error Telegram:", error.message);
+        console.error("❌ Error procesando el webhook:", error.message);
     }
 });
 
+// 3. INICIO DEL SERVIDOR
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 Corriendo en puerto ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+});
