@@ -39,7 +39,7 @@ app.post('/webhook/shopify', async (req, res) => {
 👤 *Cliente:* ${order.customer ? order.customer.first_name : 'Cliente'}
 🆔 *PLAYER ID:* ${playerID}
 💰 *Monto:* ${order.total_price} ${order.currency}
-🛒 *Producto:* ${order.line_items.title}
+🛒 *Producto:* ${order.line_items ? order.line_items.title : 'Diamantes Free Fire'}
 ----------------------------------
 ✅ *Acción:* Recargá ahora en Pagostore.
     `;
